@@ -1,23 +1,10 @@
 from flask import Flask, jsonify, request
-from models import User, Session, Transactions
+from models import User, Session, Transactions, Currency, connect
 import datetime
-from contextlib import contextmanager
+from const import HTTP_BAD_REQUEST, HTTP_NOT_FOUND, HTTP_OK
 
 app = Flask(__name__)
 
-HTTP_OK = 200
-
-@contextmanager
-def connect():
-    session = Session()
-    try:
-        yield session
-        session.commit()
-    except:
-        session.rollback()
-        raise
-    finally:
-        session.close()
 
 @app.route('/')
 def index():
@@ -26,17 +13,17 @@ def index():
 def converter(currency_1, currency_2, sum_1):
     base = 'USD'
     with connect() as session:
-        course_currency_1 = session.query(currencies.course).filter(
-                currencies.short_name == currency_1).first()
+        course_currency_1 = session.query(Currency.course).filter(
+                Currency.short_name == currency_1).first()
         course_currency_1 = course_currency_1[0]
-        multiplicity_currency_1 = session.query(currencies.multiplicity).filter(
-                currencies.short_name == currency_1).first()
+        multiplicity_currency_1 = session.query(Currency.multiplicity).filter(
+                Currency.short_name == currency_1).first()
         multiplicity_currency_1 = multiplicity_currency_1[0]
-        course_currency_2 = session.query(currencies.course).filter(
-            currencies.short_name == currency_2).first()
+        course_currency_2 = session.query(Currency.course).filter(
+            Currency.short_name == currency_2).first()
         course_currency_2 = course_currency_2[0]
-        multiplicity_currency_2 = session.query(currencies.multiplicity).filter(
-            currencies.short_name == currency_2).first()
+        multiplicity_currency_2 = session.query(Currency.multiplicity).filter(
+            Currency.short_name == currency_2).first()
         multiplicity_currency_2 = multiplicity_currency_2[0]
     if currency_1 == base:
         sum_2 = (course_currency_2 * sum_1)/multiplicity_currency_2
@@ -44,7 +31,7 @@ def converter(currency_1, currency_2, sum_1):
     if currency_2 == base:
         sum_2 = (multiplicity_currency_2 * sum_1)/course_currency_2
         return sum_2
-    sum_2 = (multiplicity_currency_1 * sum1 * course_currency_2) / (multiplicity_currency_2 * course_currency_1)
+    sum_2 = (multiplicity_currency_1 * sum_1 * course_currency_2) / (multiplicity_currency_2 * course_currency_1)
     return sum_2
 
 
@@ -55,14 +42,10 @@ def user_registration():
     json = request.get_json() # получаем json из POST запроса
     try:
         balance = json['balance']
-        print('balance ok')
         currency = json['currency']
-        print('currency ok')
         login = json['login']
         account_number = json['account_number']
-        print('login ok')
         password = json['password']
-        print('password ok')
         if len(login) < 1:
             result['error'] = "Login should contain at least one symbol"
             print(result)  # выводим лог в stdout
@@ -116,13 +99,11 @@ def user_auth():
 
 @app.route('/transaction', methods=['POST'])
 def transaction():
-    print('start trans')
     result = {}
     status_code = HTTP_OK
     json = request.get_json()  # получаем json из POST запроса
     try:
         senders_account = json['senders_account']
-        print('senders_account ok!')
         receivers_account = json['receivers_account']
         amount = json['amount']
         amount_to_receive = amount
@@ -135,7 +116,7 @@ def transaction():
         senders_account_status = session.query(User.login).filter(
             User.account_number == senders_account).first()  # проверяем есть ли отправитель
         receivers_account_status = session.query(User.login).filter(
-            User.account_number == receivers_account).first()  # проверяем есть ли отправитель
+            User.account_number == receivers_account).first()  # проверяем есть ли получатель
         senders_balance = session.query(User.balance).filter(
             User.account_number == senders_account).first() # проверяем баланс отправителя
         receivers_balance = session.query(User.balance).filter(
@@ -151,7 +132,7 @@ def transaction():
     senders_balance = senders_balance[0]
     senders_balance -= amount
     if senders_balance < 0:
-        result['error'] = "Not enought funds"
+        result['error'] = "Not enough funds"
     if senders_currency != receivers_currency:
         amount_to_receive = converter(senders_currency, receivers_currency, amount)
     receivers_balance = receivers_balance[0]
@@ -178,7 +159,6 @@ def get_statement(account_number):
             Transactions.senders_account == account_number)
     income = {}
     outcome = {}
-
     for item in income_transactions:
         print(item.amount)
         cur_dict = {}
@@ -187,10 +167,8 @@ def get_statement(account_number):
         cur_dict['amount'] = item.amount
         cur_dict['currency'] = item.currency
         cur_dict['type'] = 'income'
-        print(cur_dict)
         date_time = item.date_time
         income[date_time] = cur_dict
-
     for item in outcome_transactions:
         cur_dict ={}
         cur_dict['senders_account'] = item.senders_account
@@ -200,7 +178,6 @@ def get_statement(account_number):
         cur_dict['type'] = 'outcome'
         date_time = item.date_time
         outcome[date_time] = cur_dict
-
     income.update(outcome)
     result['transactions'] = income
     return jsonify(result), status_code

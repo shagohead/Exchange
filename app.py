@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request
 from models import User, Session, Transactions, Currency, connect
 import datetime
-from const import HTTP_BAD_REQUEST, HTTP_NOT_FOUND, HTTP_OK
+from const import HTTP_BAD_REQUEST, HTTP_NOT_FOUND, HTTP_OK, HTTP_CREATED
 
 app = Flask(__name__)
 
@@ -38,21 +38,36 @@ def converter(currency_1, currency_2, sum_1):
 @app.route('/registration', methods=['POST'])
 def user_registration():
     result = {}
-    status_code = HTTP_OK
+    status_code = HTTP_CREATED
     json = request.get_json() # получаем json из POST запроса
     try:
+        login = json['login']
+        password = json['password']
+        account_number = json['account_number']
         balance = json['balance']
         currency = json['currency']
-        login = json['login']
-        account_number = json['account_number']
-        password = json['password']
-        if len(login) < 1:
-            result['error'] = "Login should contain at least one symbol"
+        if len(login) < 7:
+            result['error'] = "Login should contain at least 7 symbols"
+            print(result)  # выводим лог в stdout
+            status_code = HTTP_BAD_REQUEST
+            return jsonify(result), status_code
+        if '@' not in login:
+            result['error'] = "Login should contain @"
             print(result)  # выводим лог в stdout
             status_code = HTTP_BAD_REQUEST
             return jsonify(result), status_code
         if len(password) < 3:
             result['error'] = "Password should contain at least 3 symbols"
+            print(result)  # выводим лог в stdout
+            status_code = HTTP_BAD_REQUEST
+            return jsonify(result), status_code
+        if len(account_number) != 6:
+            result['error'] = "Account number should consist of 6 symbols"
+            print(result)  # выводим лог в stdout
+            status_code = HTTP_BAD_REQUEST
+            return jsonify(result), status_code
+        if balance < 0:
+            result['error'] = "Balance can't be negative"
             print(result)  # выводим лог в stdout
             status_code = HTTP_BAD_REQUEST
             return jsonify(result), status_code
@@ -65,7 +80,9 @@ def user_registration():
         existed_user = session.query(User.login).filter(
                 User.login == login).first()  # проверяем есть ли уже в базе пользователь с заданным логином
     if existed_user is not None:
-        raise Exception('This login is busy. Please create another')
+        result['error'] = 'This login is busy. Please create another'
+        status_code = HTTP_BAD_REQUEST
+        return jsonify(result), status_code
     new_user_info = User(login, password, account_number, balance, currency)
     with connect() as session:
         session.add(new_user_info)
@@ -89,10 +106,14 @@ def user_auth():
     with connect() as session:
         password = session.query(User.password).filter(User.login == current_login).first() # проверяем есть ли пользователь с заданным логином. если да получаем хеш пароля данного пользователя
     if password == None:
-        raise Exception('Access denied. This login does not exist')
+        result['error'] = "Access denied. This login does not exist"
+        status_code = HTTP_BAD_REQUEST
+        return jsonify(result), status_code
     password = password[0]
     if current_password != password:
-        raise Exception('Access denied. Invalid password')
+        result['error'] = "Access denied. Invalid password"
+        status_code = HTTP_BAD_REQUEST
+        return jsonify(result), status_code
     result['data'] = 'successful authorization'
     return jsonify(result), status_code
 
@@ -112,6 +133,10 @@ def transaction():
         result['error'] = "JSON does not contain required data"
         status_code = HTTP_BAD_REQUEST
         return jsonify(result), status_code
+    if amount < 0:
+        result['error'] = "You can send negative amount"
+        status_code = HTTP_BAD_REQUEST
+        return jsonify(result), status_code
     with connect() as session:
         senders_account_status = session.query(User.login).filter(
             User.account_number == senders_account).first()  # проверяем есть ли отправитель
@@ -127,12 +152,18 @@ def transaction():
             User.account_number == receivers_account).first() # берем валюту получателя
     if senders_account_status == None:
         result['error'] = "Account of sender does not exists"
+        status_code = HTTP_BAD_REQUEST
+        return jsonify(result), status_code
     if receivers_account_status == None:
         result['error'] = "Account of receiver does not exists"
+        status_code = HTTP_BAD_REQUEST
+        return jsonify(result), status_code
     senders_balance = senders_balance[0]
     senders_balance -= amount
     if senders_balance < 0:
         result['error'] = "Not enough funds"
+        status_code = HTTP_BAD_REQUEST
+        return jsonify(result), status_code
     if senders_currency != receivers_currency:
         amount_to_receive = converter(senders_currency, receivers_currency, amount)
     receivers_balance = receivers_balance[0]
@@ -153,6 +184,12 @@ def get_statement(account_number):
     result = {}
     status_code = HTTP_OK
     with connect() as session:
+        account_status = session.query(User.login).filter(
+            User.account_number == account_number).first()
+        if account_status == None:
+            result['error'] = "Account does not exists"
+            status_code = HTTP_BAD_REQUEST
+            return jsonify(result), status_code
         income_transactions = session.query(Transactions).filter(
             Transactions.receivers_account == account_number)
         outcome_transactions = session.query(Transactions).filter(
@@ -160,7 +197,6 @@ def get_statement(account_number):
     income = {}
     outcome = {}
     for item in income_transactions:
-        print(item.amount)
         cur_dict = {}
         cur_dict['senders_account'] = item.senders_account
         cur_dict['receivers_account'] = item.receivers_account
@@ -182,6 +218,31 @@ def get_statement(account_number):
     result['transactions'] = income
     return jsonify(result), status_code
 
+
+@app.route('/currency', methods=['POST'])
+def add_currency():
+    result = {}
+    status_code = HTTP_OK
+    json = request.get_json()  # получаем json из POST запроса
+    try:
+        name = json['name']
+        print('name')
+        short_name = json['short_name']
+        print('short_name ok')
+        multiplicity = json['multiplicity']
+        print('multiplicity')
+        course = json['course']
+        print('course ok')
+    except Exception as e:
+        print(repr(e))  # выводим лог в stdout
+        result['error'] = "JSON does not contain required data"
+        status_code = HTTP_BAD_REQUEST
+        return jsonify(result), status_code
+    newcurrency_info = Currency(name, short_name, multiplicity, course)
+    with connect() as session:
+        session.add(newcurrency_info)
+    result['data'] = 'new user has been registered successfully'
+    return jsonify(result), status_code
 
 if __name__ == '__main__':
     app.run()

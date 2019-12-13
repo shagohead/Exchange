@@ -2,6 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import Column, Integer, String, Boolean
 from sqlalchemy.ext.declarative import declarative_base
+from contextlib import contextmanager
 #import config
 
 
@@ -9,6 +10,18 @@ engine = create_engine('postgresql+psycopg2://user_8:888@localhost/exchange')  #
 
 Session = sessionmaker(bind=engine)
 Base = declarative_base()
+
+@contextmanager
+def connect():
+    session = Session()
+    try:
+        yield session
+        session.commit()
+    except:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 class User(Base):  # Декларативное создание таблицы, класса и отображения за один раз
     __tablename__ = 'users'
@@ -65,7 +78,7 @@ class Currency(Base):  # Декларативное создание табли�
         self.course = course
 
     def __repr__(self):
-        return "<Currency('%s', '%s', '%s', '%s', '%s')>" % (self.name, self.short_name, self.multiplicity, self.course)
+        return "<Currency('%s', '%s', '%s', '%s')>" % (self.name, self.short_name, self.multiplicity, self.course)
 
 
 Base.metadata.create_all(engine)

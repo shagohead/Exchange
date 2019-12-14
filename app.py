@@ -219,30 +219,5 @@ def get_statement(account_number):
     return jsonify(result), status_code
 
 
-@app.route('/currency', methods=['POST'])
-def add_currency():
-    result = {}
-    status_code = HTTP_OK
-    json = request.get_json()  # получаем json из POST запроса
-    try:
-        name = json['name']
-        print('name')
-        short_name = json['short_name']
-        print('short_name ok')
-        multiplicity = json['multiplicity']
-        print('multiplicity')
-        course = json['course']
-        print('course ok')
-    except Exception as e:
-        print(repr(e))  # выводим лог в stdout
-        result['error'] = "JSON does not contain required data"
-        status_code = HTTP_BAD_REQUEST
-        return jsonify(result), status_code
-    newcurrency_info = Currency(name, short_name, multiplicity, course)
-    with connect() as session:
-        session.add(newcurrency_info)
-    result['data'] = 'new user has been registered successfully'
-    return jsonify(result), status_code
-
 if __name__ == '__main__':
     app.run()

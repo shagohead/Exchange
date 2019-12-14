@@ -134,7 +134,7 @@ def transaction():
         status_code = HTTP_BAD_REQUEST
         return jsonify(result), status_code
     if amount < 0:
-        result['error'] = "You can send negative amount"
+        result['error'] = "You can't send negative amount"
         status_code = HTTP_BAD_REQUEST
         return jsonify(result), status_code
     with connect() as session:
@@ -151,11 +151,11 @@ def transaction():
         receivers_currency = session.query(User.currency).filter(
             User.account_number == receivers_account).first() # берем валюту получателя
     if senders_account_status == None:
-        result['error'] = "Account of sender does not exists"
+        result['error'] = "Account of sender does not exist"
         status_code = HTTP_BAD_REQUEST
         return jsonify(result), status_code
     if receivers_account_status == None:
-        result['error'] = "Account of receiver does not exists"
+        result['error'] = "Account of receiver does not exist"
         status_code = HTTP_BAD_REQUEST
         return jsonify(result), status_code
     senders_balance = senders_balance[0]
@@ -187,7 +187,7 @@ def get_statement(account_number):
         account_status = session.query(User.login).filter(
             User.account_number == account_number).first()
         if account_status == None:
-            result['error'] = "Account does not exists"
+            result['error'] = "Account does not exist"
             status_code = HTTP_BAD_REQUEST
             return jsonify(result), status_code
         income_transactions = session.query(Transactions).filter(

@@ -153,3 +153,48 @@ def test_transaction_positive():
         operation_result = session.query(User).delete()
     assert response['data'] == 'success'
 
+
+def get_statement_negative():
+    url = 'http://localhost:5000/registration'
+    senders_data = {"login": "user_3@mail.ru", "password": "7772777", "balance": 110,
+                    "account_number": '123456', "currency": "GBP"}
+    requests.post(url, json=senders_data)  # регистрируем отправителя
+    recievers_data = {"login": "user_2@mail.ru", "password": "7772777", "balance": 110,
+                      "account_number": '444444', "currency": "GBP"}
+    requests.post(url, json=recievers_data)  # регистрируем получателя
+    url = 'http://localhost:5000/transaction'
+    transaction_data = {"senders_account": "123456", "receivers_account": "444444", "amount": 10}
+    requests.post(url, json=transaction_data)  # создаем первую исходящую транзакцию
+    url = 'http://localhost:5000/statement/1234567'
+    response = requests.get(url)
+    response = response.json()
+    with connect() as session:
+        operation_result = session.query(User).delete()
+    assert response['error'] == "Account does not exist"
+
+
+def get_statement_positive():
+    url = 'http://localhost:5000/registration'
+    senders_data = {"login": "user_3@mail.ru", "password": "7772777", "balance": 110,
+                    "account_number": '123456', "currency": "GBP"}
+    requests.post(url, json=senders_data)  # регистрируем отправителя
+    recievers_data = {"login": "user_2@mail.ru", "password": "7772777", "balance": 110,
+                      "account_number": '444444', "currency": "GBP"}
+    requests.post(url, json=recievers_data)  # регистрируем получателя
+    url = 'http://localhost:5000/transaction'
+    transaction_data = {"senders_account": "123456", "receivers_account": "444444", "amount": 10}
+    requests.post(url, json=transaction_data)  # создаем первую исходящую транзакцию
+    transaction_data = {"senders_account": "444444", "receivers_account": "123456", "amount": 15}
+    requests.post(url, json=transaction_data)  # создаем первую входящую транзакцию
+    transaction_data = {"senders_account": "123456", "receivers_account": "444444", "amount": 20}
+    requests.post(url, json=transaction_data)  # создаем вторую исходящую транзакцию
+    transaction_data = {"senders_account": "444444", "receivers_account": "123456", "amount": 25}
+    requests.post(url, json=transaction_data)  # создаем вторую входящую транзакцию
+    url = 'http://localhost:5000/statement/123456'
+    response = requests.get(url)
+    response = response.json()
+    with connect() as session:
+        session.query(User).delete()
+        session.query(Transactions).delete()
+    assert bool(response['transactions']) is True    
+    

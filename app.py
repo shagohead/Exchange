@@ -21,34 +21,16 @@ def user_registration():
         account_number = request_data['account_number']
         balance = request_data['initial_balance']
         currency = request_data['currency']
-        if len(email) < 6:
-            result['error'] = "Email should contain at least 6 symbols"
-            print(result)  # выводим лог в stdout
-            status_code = status.HTTP_BAD_REQUEST
-            return jsonify(result), status_code
-        if '@' not in email:
-            result['error'] = "Email should contain @"
-            print(result)  # выводим лог в stdout
-            status_code = status.HTTP_BAD_REQUEST
-            return jsonify(result), status_code
-        if len(password) < 3:
-            result['error'] = "Password should contain at least 3 symbols"
-            print(result)  # выводим лог в stdout
-            status_code = status.HTTP_BAD_REQUEST
-            return jsonify(result), status_code
-        if len(str(account_number)) != 6:
-            result['error'] = "Account number should consist of 6 symbols"
-            print(result)  # выводим лог в stdout
-            status_code = status.HTTP_BAD_REQUEST
-            return jsonify(result), status_code
-        if balance < 0:
-            result['error'] = "Balance can't be negative"
-            print(result)  # выводим лог в stdout
-            status_code = status.HTTP_BAD_REQUEST
-            return jsonify(result), status_code
+        error = utils.process_errors((email, password, account_number, balance, currency))
+        if error:
+            return error
+    except KeyError as ex:
+        result['error'] = f"Invalid registration data received. KeyError: {ex}"
+        status_code = status.HTTP_BAD_REQUEST
+        return jsonify(result), status_code
     except Exception as e:
-        print(repr(e))  # выводим лог в stdout
-        result['error'] = "JSON does not contain required data"
+        result['error'] = f"Unexpected error occurred: {e}"
+        print(result)
         status_code = status.HTTP_BAD_REQUEST
         return jsonify(result), status_code
     with connect() as session:
@@ -74,9 +56,12 @@ def user_login():
     try:
         current_email = request_data['email']
         current_password = request_data['password']
+    except KeyError as ex:
+        result['error'] = f"Invalid registration data received. KeyError: {ex}"
+        status_code = status.HTTP_BAD_REQUEST
+        return jsonify(result), status_code
     except Exception as e:
-        result['error'] = "JSON does not contain required data"
-        print(repr(e))  # выводим лог в stdout
+        result['error'] = f"Unexpected error occurred: {e}"
         status_code = status.HTTP_BAD_REQUEST
         return jsonify(result), status_code
     with connect() as session:
@@ -105,9 +90,12 @@ def transaction():
         receivers_account = request_data['receivers_account']
         amount = request_data['amount']
         amount_to_receive = amount
+    except KeyError as ex:
+        result['error'] = f"Invalid registration data received. KeyError: {ex}"
+        status_code = status.HTTP_BAD_REQUEST
+        return jsonify(result), status_code
     except Exception as e:
-        print(repr(e))  # выводим лог в stdout
-        result['error'] = "JSON does not contain required data"
+        result['error'] = f"Unexpected error occurred: {e}"
         status_code = status.HTTP_BAD_REQUEST
         return jsonify(result), status_code
     if amount < 0:
@@ -156,7 +144,8 @@ def transaction():
                                    == senders_account).update({User.balance:
                                                                            senders_balance})
         session.query(User).filter(User.account_number
-                                   == receivers_account).update({User.balance: receivers_balance})
+                                   == receivers_account).update({User.balance:
+                                                                             receivers_balance})
     result['details'] = 'success'
     return jsonify(result), status_code
 
@@ -178,10 +167,7 @@ def get_statement(account_number):
             Transactions.senders_account == account_number)
     income = utils.gather_transactions(income_transactions, 'income')
     outcome = utils.gather_transactions(outcome_transactions, 'outcome')
-    print('income', income)
-    print('outcome', outcome)
-    income.update(outcome)
-    result['transactions'] = income
+    result['transactions'] = utils.get_final_statement(income, outcome)
     return jsonify(result), status_code
 
 

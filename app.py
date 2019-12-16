@@ -30,7 +30,6 @@ def user_registration():
         return jsonify(result), status_code
     except Exception as e:
         result['error'] = f"Unexpected error occurred: {e}"
-        print(result)
         status_code = status.HTTP_BAD_REQUEST
         return jsonify(result), status_code
     with connect() as session:

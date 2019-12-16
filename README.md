@@ -57,8 +57,16 @@ curl -d '{"email": "user_3@mail.ru", "password": "7772777"}' -H "Content-Type: a
 ```bash
 {"details":"successful authorization"}
 ```
-
-
+#### 3. Перевод средств
+Перевод средств производится посредством POST запроса
+###### пример запроса:
+```bash
+curl -d '{"senders_account" : "111111", "receivers_account": "222222", "amount": 10}' -H "Content-Type: application/json" -X POST http://localhost:5000/transaction
+```
+###### ответ сервера:
+```bash
+{"details":"success"}
+```
 
 ### Установка приложения 
 ```bash

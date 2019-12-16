@@ -68,6 +68,18 @@ curl -d '{"senders_account" : "111111", "receivers_account": "222222", "amount":
 {"details":"success"}
 ```
 
+#### 4. Просмор списка всех операций по своему счету
+Просмор списка операций по счету производится посредством GET запроса
+###### пример запроса:
+```bash
+curl -X GET http://127.0.0.1:5000/statement/111111
+```
+###### ответ сервера:
+```bash
+{"transactions":{"2019-12-16-05.14.19":{"amount":"10","currency":"GBP","receivers_account":"222222","senders_account":"111111","type":"outcome"}}}
+```
+
+
 ### Установка приложения 
 ```bash
 git clone https://github.com/aquaracer/Exchange.git exchange_app
@@ -84,3 +96,5 @@ python3 app.py
 ```bash
 pytest test.py
 ```
+
+

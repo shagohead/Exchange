@@ -46,6 +46,18 @@ curl -d '{"email": "user_3@mail.ru", "password": "7772777", "initial_balance": 1
 {"details":"new user has been registered successfully"}
 ```
 
+#### 2. Аутентификация пользователя
+Аутентификация пользователя производится посредством POST запроса
+
+###### пример запроса:
+```bash
+curl -d '{"email": "user_3@mail.ru", "password": "7772777"}' -H "Content-Type: application/json" -X POST http://localhost:5000/login
+```
+###### ответ сервера:
+```bash
+{"details":"successful authorization"}
+```
+
 
 
 ### Установка приложения 
